@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../app/theme.dart';
-import '../auth/auth_service.dart';
+import 'package:intl/intl.dart';
 import '../services/task_service.dart';
+import '../auth/auth_service.dart';
 import 'task_tile.dart';
+import '../app/theme.dart';
+import 'calendar_screen.dart';
+import 'pending_tasks_screen.dart';
 import 'task_model.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -22,6 +25,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final RxString _searchQuery = ''.obs;
   final RxList<Task> _filteredTasks = <Task>[].obs;
 
+  // Navigation state
+  final RxInt _selectedIndex = 0.obs;
+
   @override
   void initState() {
     super.initState();
@@ -37,29 +43,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _updateFilteredTasks() {
-    // First filter by search query
-    final searchFiltered = _searchQuery.value.isEmpty
-        ? taskService.tasks
-        : taskService.tasks.where(
-            (task) => task.title
-                .toLowerCase()
-                .contains(_searchQuery.value.toLowerCase()),
-          );
+    final tasks = taskService.tasks;
 
-    // Then filter by completion status
-    switch (filterType.value) {
-      case 'active':
-        _filteredTasks.value =
-            searchFiltered.where((task) => !task.isCompleted).toList();
-        break;
-      case 'completed':
-        _filteredTasks.value =
-            searchFiltered.where((task) => task.isCompleted).toList();
-        break;
-      case 'all':
-      default:
-        _filteredTasks.value = searchFiltered.toList();
+    // Apply filter type
+    var filtered = <Task>[];
+    if (filterType.value == 'all') {
+      filtered = tasks.toList();
+    } else if (filterType.value == 'active') {
+      filtered = tasks.where((task) => !task.isCompleted).toList();
+    } else if (filterType.value == 'completed') {
+      filtered = tasks.where((task) => task.isCompleted).toList();
     }
+
+    // Apply search filter if query is not empty
+    if (_searchQuery.value.isNotEmpty) {
+      filtered = filtered
+          .where((task) => task.title
+              .toLowerCase()
+              .contains(_searchQuery.value.toLowerCase()))
+          .toList();
+    }
+
+    _filteredTasks.value = filtered;
   }
 
   @override
@@ -86,314 +91,221 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom App Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+      body: Obx(() {
+        switch (_selectedIndex.value) {
+          case 0:
+            return _buildAllTasksScreen();
+          case 1:
+            return CalendarScreen();
+          case 2:
+            return PendingTasksScreen();
+          default:
+            return _buildAllTasksScreen();
+        }
+      }),
+      bottomNavigationBar: Obx(() => BottomNavigationBar(
+            currentIndex: _selectedIndex.value,
+            onTap: (index) => _selectedIndex.value = index,
+            backgroundColor: AppTheme.backgroundColor,
+            selectedItemColor: AppTheme.accentYellow,
+            unselectedItemColor: Colors.grey,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: 'Tasks',
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_month),
+                label: 'Calendar',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.pending_actions),
+                label: 'Pending',
+              ),
+            ],
+          )),
+    );
+  }
+
+  Widget _buildAllTasksScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tasks'),
+        backgroundColor: AppTheme.backgroundColor,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _handleSignOut,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'My Tasks',
-                        style: AppTheme.subheading,
-                      ),
-                      CircleAvatar(
-                        backgroundColor: AppTheme.surfaceColor,
-                        child: IconButton(
-                          icon: const Icon(Icons.logout, color: Colors.white),
-                          onPressed: _handleSignOut,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.search,
+                    color: AppTheme.secondaryText,
                   ),
-                  const SizedBox(height: 16),
-                  // Task statistics cards
-                  Obx(() => _buildTaskStatistics()),
-                  const SizedBox(height: 16),
-                  // Search box
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: TextField(
                       controller: _searchController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Search tasks...',
-                        prefixIcon: Icon(Icons.search, color: Colors.grey),
+                        hintStyle: TextStyle(color: AppTheme.secondaryText),
                         border: InputBorder.none,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 15),
                       ),
                       onChanged: (value) => _searchQuery.value = value,
                       focusNode: _searchFocusNode,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Filter chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _filterChip('All', 'all'),
-                        const SizedBox(width: 8),
-                        _filterChip('To Do', 'active'),
-                        const SizedBox(width: 8),
-                        _filterChip('Completed', 'completed'),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
-            // Task list
-            Expanded(
-              child: Obx(() {
-                // Show loading indicator when fetching tasks
-                if (taskService.isLoading.value) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(AppTheme.accentYellow),
-                    ),
-                  );
-                }
-
-                // Show error message if there was an error
-                if (taskService.hasError.value) {
-                  return _buildErrorState(
-                    taskService.errorMessage.value,
-                    () => taskService.fetchTasks(),
-                  );
-                }
-
-                if (taskService.tasks.isEmpty) {
-                  // No tasks at all
-                  return _buildEmptyState(
-                    "You don't have any tasks yet",
-                    "Tap the + button to add your first task",
-                    Icons.task_alt,
-                  );
-                } else if (_filteredTasks.isEmpty) {
-                  // No tasks matching the current filter
-                  return _buildEmptyState(
-                    "No matching tasks",
-                    "Try changing your search or filter",
-                    Icons.filter_list,
-                  );
-                } else {
-                  return RefreshIndicator(
-                    onRefresh: () async {
-                      await taskService.fetchTasks();
-                    },
-                    color: AppTheme.accentYellow,
-                    backgroundColor: AppTheme.surfaceColor,
-                    child: ListView.builder(
-                      itemCount: _filteredTasks.length,
-                      padding: const EdgeInsets.all(16),
-                      itemBuilder: (context, index) {
-                        final task = _filteredTasks[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: TaskTile(
-                            task: task,
-                            onDelete: () async {
-                              try {
-                                await taskService.deleteTask(task.id);
-                                Get.snackbar(
-                                  'Success',
-                                  'Task deleted successfully',
-                                  backgroundColor:
-                                      Colors.green.withOpacity(0.8),
-                                  colorText: Colors.white,
-                                  duration: const Duration(seconds: 2),
-                                );
-                              } catch (e) {
-                                Get.snackbar(
-                                  'Error',
-                                  e.toString(),
-                                  backgroundColor: Colors.red.withOpacity(0.8),
-                                  colorText: Colors.white,
-                                );
-                              }
-                            },
-                            onToggle: () async {
-                              try {
-                                await taskService.toggleTaskCompletion(task);
-                              } catch (e) {
-                                Get.snackbar(
-                                  'Error',
-                                  e.toString(),
-                                  backgroundColor: Colors.red.withOpacity(0.8),
-                                  colorText: Colors.white,
-                                );
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                }
-              }),
+          ),
+          _buildTaskStatistics(),
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              children: [
+                _buildFilterChip('All', 'all'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Active', 'active'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Completed', 'completed'),
+              ],
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: Obx(() {
+              if (taskService.isLoading.value) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppTheme.accentYellow),
+                  ),
+                );
+              }
+
+              if (_filteredTasks.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.task_alt,
+                        size: 64,
+                        color: Colors.grey.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No tasks found',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () => taskService.fetchTasks(),
+                color: AppTheme.accentYellow,
+                child: ListView.builder(
+                  itemCount: _filteredTasks.length,
+                  padding: const EdgeInsets.all(16),
+                  itemBuilder: (context, index) {
+                    final task = _filteredTasks[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: TaskTile(
+                        task: task,
+                        onDelete: () async {
+                          try {
+                            await taskService.deleteTask(task.id);
+                            Get.snackbar(
+                              'Success',
+                              'Task deleted successfully',
+                              backgroundColor: Colors.green.withOpacity(0.8),
+                              colorText: Colors.white,
+                              duration: const Duration(seconds: 2),
+                            );
+                          } catch (e) {
+                            Get.snackbar(
+                              'Error',
+                              e.toString(),
+                              backgroundColor: Colors.red.withOpacity(0.8),
+                              colorText: Colors.white,
+                            );
+                          }
+                        },
+                        onToggle: () async {
+                          try {
+                            await taskService.toggleTaskCompletion(task);
+                          } catch (e) {
+                            Get.snackbar(
+                              'Error',
+                              e.toString(),
+                              backgroundColor: Colors.red.withOpacity(0.8),
+                              colorText: Colors.white,
+                            );
+                          }
+                        },
+                        onEdit: () => _showEditTaskDialog(task),
+                      ),
+                    );
+                  },
+                ),
+              );
+            }),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddTaskDialog(),
+        onPressed: _showAddTaskDialog,
         backgroundColor: AppTheme.accentYellow,
         child: const Icon(Icons.add, color: Colors.black),
       ),
     );
   }
 
-  Widget _filterChip(String label, String type) {
+  Widget _buildFilterChip(String label, String value) {
     return Obx(() {
-      final isSelected = filterType.value == type;
-
-      return GestureDetector(
-        onTap: () => filterType.value = type,
+      final isSelected = filterType.value == value;
+      return InkWell(
+        onTap: () => filterType.value = value,
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected ? AppTheme.accentYellow : AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             label,
             style: TextStyle(
               color: isSelected ? Colors.black : Colors.white,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              fontSize: 14,
             ),
           ),
         ),
       );
     });
-  }
-
-  Widget _buildEmptyState(String title, String subtitle, IconData icon) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 80, color: AppTheme.primaryColor.withOpacity(0.5)),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: AppTheme.subheading.copyWith(
-                color: Colors.white.withOpacity(0.8),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: AppTheme.bodyText.copyWith(
-                color: AppTheme.secondaryText,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showAddTaskDialog() async {
-    final taskController = TextEditingController();
-    final taskFocusNode = FocusNode();
-
-    try {
-      await Get.dialog(
-        AlertDialog(
-          title: const Text('Add New Task'),
-          content: SafeArea(
-            child: TextField(
-              controller: taskController,
-              focusNode: taskFocusNode,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Enter task title',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _addTask(taskController.text),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => _addTask(taskController.text),
-              child: const Text('Add Task'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      // Ensure resources are properly disposed even if dialog is dismissed
-      taskFocusNode.dispose();
-      taskController.dispose();
-    }
-  }
-
-  Future<void> _addTask(String title) async {
-    if (title.trim().isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Task title cannot be empty',
-        backgroundColor: Colors.red.withOpacity(0.8),
-        colorText: Colors.white,
-      );
-      return;
-    }
-
-    try {
-      await taskService.addTask(title.trim());
-
-      // Only try to close dialog if it's still showing
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
-
-      Get.snackbar(
-        'Success',
-        'Task added successfully',
-        backgroundColor: Colors.green.withOpacity(0.8),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        e.toString(),
-        backgroundColor: Colors.red.withOpacity(0.8),
-        colorText: Colors.white,
-      );
-    }
   }
 
   Widget _buildTaskStatistics() {
@@ -412,44 +324,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final countTextSize = isCompact ? 14.0 : 16.0;
     final titleTextSize = isCompact ? 10.0 : 12.0;
 
-    return Row(
-      children: [
-        _buildStatCard(
-          'Total',
-          totalTasks.toString(),
-          Icons.list_alt,
-          AppTheme.primaryColor,
-          padding: cardPadding,
-          iconSize: iconSize,
-          iconPadding: iconPadding,
-          countTextSize: countTextSize,
-          titleTextSize: titleTextSize,
-        ),
-        SizedBox(width: spaceBetween),
-        _buildStatCard(
-          'To Do',
-          pendingTasks.toString(),
-          Icons.pending_actions,
-          Colors.orange,
-          padding: cardPadding,
-          iconSize: iconSize,
-          iconPadding: iconPadding,
-          countTextSize: countTextSize,
-          titleTextSize: titleTextSize,
-        ),
-        SizedBox(width: spaceBetween),
-        _buildStatCard(
-          'Completed',
-          completedTasks.toString(),
-          Icons.task_alt,
-          Colors.green,
-          padding: cardPadding,
-          iconSize: iconSize,
-          iconPadding: iconPadding,
-          countTextSize: countTextSize,
-          titleTextSize: titleTextSize,
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          _buildStatCard(
+            'Total',
+            totalTasks.toString(),
+            Icons.list_alt,
+            AppTheme.primaryColor,
+            padding: cardPadding,
+            iconSize: iconSize,
+            iconPadding: iconPadding,
+            countTextSize: countTextSize,
+            titleTextSize: titleTextSize,
+          ),
+          SizedBox(width: spaceBetween),
+          _buildStatCard(
+            'To Do',
+            pendingTasks.toString(),
+            Icons.pending_actions,
+            Colors.orange,
+            padding: cardPadding,
+            iconSize: iconSize,
+            iconPadding: iconPadding,
+            countTextSize: countTextSize,
+            titleTextSize: titleTextSize,
+          ),
+          SizedBox(width: spaceBetween),
+          _buildStatCard(
+            'Completed',
+            completedTasks.toString(),
+            Icons.task_alt,
+            Colors.green,
+            padding: cardPadding,
+            iconSize: iconSize,
+            iconPadding: iconPadding,
+            countTextSize: countTextSize,
+            titleTextSize: titleTextSize,
+          ),
+        ],
+      ),
     );
   }
 
@@ -514,30 +429,277 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildErrorState(String message, VoidCallback onRetry) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error, size: 80, color: Colors.red.withOpacity(0.5)),
-            const SizedBox(height: 24),
-            Text(
-              message,
-              style: AppTheme.subheading.copyWith(
-                color: Colors.white.withOpacity(0.8),
+  Future<void> _showAddTaskDialog() async {
+    final taskController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final taskFocusNode = FocusNode();
+    DateTime? selectedDueDate;
+
+    try {
+      await Get.dialog(
+        AlertDialog(
+          title: const Text('Add New Task'),
+          content: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: taskController,
+                    focusNode: taskFocusNode,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Task Title',
+                      hintText: 'Enter task title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (Optional)',
+                      hintText: 'Enter task description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  StatefulBuilder(
+                    builder: (context, setStateLocal) {
+                      return Row(
+                        children: [
+                          Icon(Icons.event, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Due Date: ${selectedDueDate != null ? DateFormat('MMM d, y').format(selectedDueDate!) : 'None'}',
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () async {
+                              final DateTime initialPickDate =
+                                  selectedDueDate ?? DateTime.now();
+                              final pickedDate = await showDatePicker(
+                                context: context,
+                                initialDate: initialPickDate,
+                                firstDate: DateTime.now()
+                                    .subtract(const Duration(days: 365)),
+                                lastDate: DateTime.now()
+                                    .add(const Duration(days: 365)),
+                              );
+
+                              if (pickedDate != null) {
+                                setStateLocal(() {
+                                  selectedDueDate = pickedDate;
+                                });
+                              }
+                            },
+                            child: const Text('Select'),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
+              onPressed: () {
+                if (taskController.text.trim().isEmpty) {
+                  Get.snackbar(
+                    'Error',
+                    'Task title cannot be empty',
+                    backgroundColor: Colors.red.withOpacity(0.8),
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+
+                taskService.addTask(
+                  taskController.text.trim(),
+                  description: descriptionController.text.trim(),
+                  dueDate: selectedDueDate,
+                );
+
+                // Only try to close dialog if it's still showing
+                if (Get.isDialogOpen ?? false) {
+                  Get.back();
+                }
+
+                Get.snackbar(
+                  'Success',
+                  'Task added successfully',
+                  backgroundColor: Colors.green.withOpacity(0.8),
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
+              },
+              child: const Text('Add Task'),
             ),
           ],
         ),
-      ),
-    );
+      );
+    } finally {
+      // Ensure resources are properly disposed even if dialog is dismissed
+      taskFocusNode.dispose();
+      taskController.dispose();
+      descriptionController.dispose();
+    }
+  }
+
+  Future<void> _showEditTaskDialog(Task task) async {
+    final taskController = TextEditingController(text: task.title);
+    final descriptionController =
+        TextEditingController(text: task.description ?? '');
+    final focusNode = FocusNode();
+    DateTime? selectedDueDate = task.dueDate;
+    bool clearDueDate = false;
+
+    try {
+      await Get.dialog(
+        AlertDialog(
+          title: const Text('Edit Task'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: taskController,
+                  focusNode: focusNode,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Task Title',
+                    hintText: 'Enter task title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (Optional)',
+                    hintText: 'Enter task description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (context, setStateLocal) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.event, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              clearDueDate
+                                  ? 'Due Date: None'
+                                  : 'Due Date: ${selectedDueDate != null ? DateFormat('MMM d, y').format(selectedDueDate!) : 'None'}',
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () async {
+                                if (clearDueDate) {
+                                  setStateLocal(() {
+                                    clearDueDate = false;
+                                    selectedDueDate = task.dueDate;
+                                  });
+                                  return;
+                                }
+
+                                final DateTime initialPickDate =
+                                    selectedDueDate ?? DateTime.now();
+                                final pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: initialPickDate,
+                                  firstDate: DateTime.now()
+                                      .subtract(const Duration(days: 365)),
+                                  lastDate: DateTime.now()
+                                      .add(const Duration(days: 365)),
+                                );
+
+                                if (pickedDate != null) {
+                                  setStateLocal(() {
+                                    selectedDueDate = pickedDate;
+                                    clearDueDate = false;
+                                  });
+                                }
+                              },
+                              child: const Text('Change'),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: clearDueDate,
+                              onChanged: (value) {
+                                setStateLocal(() {
+                                  clearDueDate = value ?? false;
+                                });
+                              },
+                            ),
+                            const Text('Clear due date'),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (taskController.text.trim().isEmpty) {
+                  Get.snackbar(
+                    'Error',
+                    'Task title cannot be empty',
+                    backgroundColor: Colors.red.withOpacity(0.8),
+                    colorText: Colors.white,
+                  );
+                  return;
+                }
+
+                taskService.updateTask(
+                  task,
+                  title: taskController.text.trim(),
+                  description: descriptionController.text.trim(),
+                  dueDate: clearDueDate ? null : selectedDueDate,
+                  clearDueDate: clearDueDate,
+                );
+                Get.back();
+                Get.snackbar(
+                  'Success',
+                  'Task updated successfully',
+                  backgroundColor: Colors.green.withOpacity(0.8),
+                  colorText: Colors.white,
+                );
+              },
+              child: const Text('Update Task'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      focusNode.dispose();
+      taskController.dispose();
+      descriptionController.dispose();
+    }
   }
 }
