@@ -31,6 +31,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    // Make sure we're loading all tasks by default
+    taskService.showOnlyToday.value = false;
+
     // Initial update for filtered tasks
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateFilteredTasks();

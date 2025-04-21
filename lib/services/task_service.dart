@@ -12,7 +12,7 @@ class TaskService extends GetxService {
 
   // Filter for today's tasks
   final Rx<DateTime?> selectedDate = Rx<DateTime?>(DateTime.now());
-  final RxBool showOnlyToday = true.obs;
+  final RxBool showOnlyToday = false.obs;
 
   @override
   void onInit() {
@@ -88,12 +88,10 @@ class TaskService extends GetxService {
         taskData['due_date'] = dueDate.toIso8601String();
       }
 
-      final response = await _supabase.from('tasks').insert(taskData).select();
+      await _supabase.from('tasks').insert(taskData);
 
-      if (response != null && response.isNotEmpty) {
-        final newTask = Task.fromJson(response.first as Map<String, dynamic>);
-        tasks.insert(0, newTask);
-      }
+      // Fetch all tasks to ensure we have the latest data
+      await fetchTasks();
     } catch (e) {
       hasError.value = true;
       errorMessage.value = 'Could not add task: ${e.toString()}';
@@ -110,7 +108,9 @@ class TaskService extends GetxService {
       errorMessage.value = '';
 
       await _supabase.from('tasks').delete().eq('id', taskId);
-      tasks.removeWhere((task) => task.id == taskId);
+
+      // Fetch all tasks to ensure we have the latest data
+      await fetchTasks();
     } catch (e) {
       hasError.value = true;
       errorMessage.value = 'Could not delete task: ${e.toString()}';
@@ -132,15 +132,8 @@ class TaskService extends GetxService {
           .from('tasks')
           .update({'is_completed': updatedStatus}).eq('id', task.id);
 
-      final index = tasks.indexWhere((t) => t.id == task.id);
-      if (index != -1) {
-        // Create a new task with updated completion status
-        final updatedTask = task.copyWith(isCompleted: updatedStatus);
-
-        // Replace the task in the list
-        tasks[index] = updatedTask;
-        tasks.refresh();
-      }
+      // Fetch all tasks to ensure we have the latest data
+      await fetchTasks();
     } catch (e) {
       hasError.value = true;
       errorMessage.value = 'Could not update task: ${e.toString()}';
@@ -180,20 +173,8 @@ class TaskService extends GetxService {
 
       await _supabase.from('tasks').update(updateData).eq('id', task.id);
 
-      final index = tasks.indexWhere((t) => t.id == task.id);
-      if (index != -1) {
-        // Create updated task
-        final updatedTask = task.copyWith(
-          title: title,
-          description: description,
-          dueDate: dueDate,
-          clearDueDate: clearDueDate ?? false,
-        );
-
-        // Replace in list
-        tasks[index] = updatedTask;
-        tasks.refresh();
-      }
+      // Fetch all tasks to ensure we have the latest data
+      await fetchTasks();
     } catch (e) {
       hasError.value = true;
       errorMessage.value = 'Could not update task: ${e.toString()}';

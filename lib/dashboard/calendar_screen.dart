@@ -27,6 +27,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+
+    // Make sure we're loading all tasks, not just today's
+    taskService.showOnlyToday.value = false;
+
     _groupTasksByDay();
 
     // Listen for task changes to update events

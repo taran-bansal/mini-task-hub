@@ -17,6 +17,13 @@ class _PendingTasksScreenState extends State<PendingTasksScreen> {
   final TaskService taskService = Get.find<TaskService>();
 
   @override
+  void initState() {
+    super.initState();
+    // Make sure we're loading all tasks, not just today's
+    taskService.showOnlyToday.value = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
