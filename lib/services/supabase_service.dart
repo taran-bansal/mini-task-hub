@@ -1,88 +1,147 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../dashboard/task_model.dart';
+import 'package:flutter/foundation.dart';
 
 class SupabaseService {
-  static final supabase = Supabase.instance.client;
-  static const String _tasksTable = 'tasks';
+  static const String supabaseUrl = 'https://dwfxrpgkczxzrwvhfnrf.supabase.co';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3ZnhycGdrY3p4enJ3dmhmbnJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUxNjMzOTMsImV4cCI6MjA2MDczOTM5M30.ynXPJh0eQqXWzN9njuuGTW_ispgfM1OkhJTqCXAktVc';
 
-  // Authentication Methods
+  final _supabase = Supabase.instance.client;
+
+  static Future<void> initialize() async {
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+        debug: kDebugMode,
+      );
+    } catch (e) {
+      debugPrint('Error initializing Supabase: $e');
+      rethrow;
+    }
+  }
+
+  SupabaseService() {
+    // _supabase = Supabase.instance.client;
+  }
+
   Future<AuthResponse> signUp({
     required String email,
     required String password,
   }) async {
-    return await supabase.auth.signUp(
-      email: email,
-      password: password,
-    );
+    try {
+      return await _supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      debugPrint('Error during sign up: $e');
+      rethrow;
+    }
   }
 
   Future<AuthResponse> signIn({
     required String email,
     required String password,
   }) async {
-    return await supabase.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    try {
+      return await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      debugPrint('Error during sign in: $e');
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {
-    await supabase.auth.signOut();
+    try {
+      await _supabase.auth.signOut();
+    } catch (e) {
+      debugPrint('Error during sign out: $e');
+      rethrow;
+    }
   }
 
-  // Task Methods
-  Future<List<Task>> getTasks() async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
-
-    final response = await supabase
-        .from(_tasksTable)
-        .select()
-        .eq('user_id', userId)
-        .order('created_at', ascending: false);
-
-    return (response as List).map((task) => Task.fromJson(task)).toList();
+  Future<void> resetPassword(String email) async {
+    await _supabase.auth.resetPasswordForEmail(email);
   }
 
-  Future<Task> createTask(String title) async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+  Future<List<Map<String, dynamic>>> getTasks() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
 
-    final task = {
-      'title': title,
-      'is_completed': false,
-      'user_id': userId,
-    };
+      final response = await _supabase
+          .from('tasks')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error fetching tasks: $e');
+      rethrow;
+    }
+  }
 
-    final response =
-        await supabase.from(_tasksTable).insert(task).select().single();
+  Future<Map<String, dynamic>> createTask({
+    required String title,
+    required bool isCompleted,
+  }) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
 
-    return Task.fromJson(response);
+      final response = await _supabase
+          .from('tasks')
+          .insert({
+            'title': title,
+            'is_completed': isCompleted,
+            'user_id': userId,
+          })
+          .select()
+          .single();
+      return response;
+    } catch (e) {
+      debugPrint('Error creating task: $e');
+      rethrow;
+    }
   }
 
   Future<void> deleteTask(String taskId) async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
 
-    await supabase
-        .from(_tasksTable)
-        .delete()
-        .eq('id', taskId)
-        .eq('user_id', userId);
+      await _supabase
+          .from('tasks')
+          .delete()
+          .eq('id', taskId)
+          .eq('user_id', userId);
+    } catch (e) {
+      debugPrint('Error deleting task: $e');
+      rethrow;
+    }
   }
 
-  Future<Task> toggleTaskCompletion(Task task) async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
+  Future<void> updateTaskStatus(String taskId, bool isCompleted) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
 
-    final response = await supabase
-        .from(_tasksTable)
-        .update({'is_completed': !task.isCompleted})
-        .eq('id', task.id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-    return Task.fromJson(response);
+      await _supabase
+          .from('tasks')
+          .update({'is_completed': isCompleted})
+          .eq('id', taskId)
+          .eq('user_id', userId);
+    } catch (e) {
+      debugPrint('Error updating task status: $e');
+      rethrow;
+    }
   }
+
+  User? get currentUser => _supabase.auth.currentUser;
+  bool get isAuthenticated => _supabase.auth.currentUser != null;
+  SupabaseClient get client => _supabase;
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../app/theme.dart';
-import '../services/supabase_service.dart';
+import 'auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +13,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _supabaseService = SupabaseService();
+  final authService = Get.find<AuthService>();
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
@@ -30,20 +30,25 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _supabaseService.signIn(
+      await authService.signIn(
         email: _emailController.text,
         password: _passwordController.text,
       );
-      Get.offAllNamed('/dashboard');
+      Get.offAllNamed('/main');
     } catch (e) {
+      print("EXCEPTION: $e");
+      rethrow;
       Get.snackbar(
         'Error',
         e.toString(),
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -51,39 +56,40 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
-              Text(
-                'DayTask',
-                style: AppTheme.brandText,
-              ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 40),
               Text(
                 'Welcome Back!',
                 style: AppTheme.heading,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 8),
+              Text(
+                'Sign in to continue',
+                style:
+                    AppTheme.bodyText.copyWith(color: AppTheme.secondaryText),
+              ),
+              const SizedBox(height: 40),
               TextField(
+                style: AppTheme.bodyText,
                 controller: _emailController,
                 decoration: const InputDecoration(
-                  hintText: 'Email Address',
+                  hintText: 'Email',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
-                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
+                style: AppTheme.bodyText,
                 controller: _passwordController,
+                obscureText: true,
                 decoration: const InputDecoration(
                   hintText: 'Password',
                   prefixIcon: Icon(Icons.lock_outline),
-                  suffixIcon: Icon(Icons.visibility_off_outlined),
                 ),
-                obscureText: true,
               ),
               const SizedBox(height: 16),
               Align(
@@ -94,11 +100,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: Text(
                     'Forgot Password?',
-                    style: AppTheme.linkText,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.accentYellow,
+                        ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -109,62 +117,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 20,
                           child: CircularProgressIndicator(),
                         )
-                      : const Text('Log In'),
+                      : const Text('Sign In'),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Expanded(child: Divider(color: AppTheme.secondaryText)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Or continue with',
-                      style: AppTheme.linkText,
-                    ),
-                  ),
-                  const Expanded(child: Divider(color: AppTheme.secondaryText)),
-                ],
-              ),
-              const SizedBox(height: 24),
-              OutlinedButton(
-                onPressed: () {
-                  // TODO: Implement Google Sign In
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.white),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.g_mobiledata, size: 24),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Google',
-                      style: AppTheme.bodyText,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+              const Spacer(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     "Don't have an account? ",
-                    style: AppTheme.linkText,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   TextButton(
                     onPressed: () => Get.toNamed('/signup'),
                     child: Text(
                       'Sign Up',
-                      style: AppTheme.linkText.copyWith(
-                        color: AppTheme.accentYellow,
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.accentYellow,
+                          ),
                     ),
                   ),
                 ],

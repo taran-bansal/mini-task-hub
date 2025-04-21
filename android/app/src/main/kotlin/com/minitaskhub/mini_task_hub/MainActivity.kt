@@ -1,4 +1,4 @@
-package com.example.mini_task_hub
+package com.minitaskhub.mini_task_hub
 
 import io.flutter.embedding.android.FlutterActivity
 

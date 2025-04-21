@@ -3,74 +3,104 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Colors from Figma
-  static const Color primaryBackground = Color(0xFF212832);
+  static const Color primaryColor = Color(0xFF6C63FF);
+  static const Color secondaryColor = Color(0xFF03DAC6);
+  static const Color backgroundColor = Color(0xFF212832);
+  static const Color surfaceColor = Color(0xFF263238);
   static const Color accentYellow = Color(0xFFFED36A);
-  static const Color inputBackground = Color(0xFF455A64);
+  static const Color errorColor = Color(0xFFB00020);
+  static const Color textColor = Color(0xFFFFFFFF);
   static const Color secondaryText = Color(0xFF8CAAB9);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color decorativeGold = Color(0xFFBC9434);
+  static const Color dividerColor = Color(0xFF455A64);
 
   // Text Styles
-  static TextStyle get heading => GoogleFonts.inter(
-        fontSize: 26,
+  static TextStyle get heading => GoogleFonts.poppins(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: textColor,
+      );
+
+  static TextStyle get subheading => GoogleFonts.poppins(
+        fontSize: 24,
         fontWeight: FontWeight.w600,
-        color: white,
+        color: textColor,
       );
 
-  static TextStyle get bodyText => GoogleFonts.inter(
-        fontSize: 18,
-        fontWeight: FontWeight.w400,
-        color: white,
-      );
-
-  static TextStyle get linkText => GoogleFonts.inter(
+  static TextStyle get bodyText => GoogleFonts.poppins(
         fontSize: 16,
-        fontWeight: FontWeight.w500,
+        color: textColor,
+      );
+
+  static TextStyle get caption => GoogleFonts.poppins(
+        fontSize: 14,
         color: secondaryText,
       );
 
-  static TextStyle get brandText => GoogleFonts.inter(
-        fontSize: 24,
+  static TextStyle get button => GoogleFonts.poppins(
+        fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: white,
+        color: Colors.white,
       );
 
   // Theme Data
   static ThemeData get theme => ThemeData(
-        scaffoldBackgroundColor: primaryBackground,
+        primaryColor: primaryColor,
+        scaffoldBackgroundColor: backgroundColor,
         colorScheme: const ColorScheme.dark(
-          primary: accentYellow,
-          secondary: decorativeGold,
-          background: primaryBackground,
-          surface: inputBackground,
+          primary: primaryColor,
+          secondary: secondaryColor,
+          surface: surfaceColor,
+          background: backgroundColor,
+          error: errorColor,
         ),
         textTheme: TextTheme(
-          headlineLarge: heading,
+          displayLarge: heading,
+          displayMedium: subheading,
           bodyLarge: bodyText,
-          bodyMedium: linkText,
-          labelLarge: brandText,
+          bodyMedium: caption,
+          labelLarge: button,
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: inputBackground,
+          fillColor: surfaceColor,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
-          hintStyle: bodyText.copyWith(color: secondaryText),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: primaryColor),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: errorColor),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: accentYellow,
             foregroundColor: Colors.black,
-            textStyle: bodyText.copyWith(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            textStyle: button,
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: textColor,
+            side: const BorderSide(color: dividerColor),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
         ),
       );

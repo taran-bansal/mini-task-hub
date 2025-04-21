@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/theme.dart';
+import 'screens/splash_screen.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
+import 'auth/auth_service.dart';
 import 'dashboard/dashboard_screen.dart';
+import 'services/task_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
   await Supabase.initialize(
     url: 'https://dwfxrpgkczxzrwvhfnrf.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3ZnhycGdrY3p4enJ3dmhmbnJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUxNjMzOTMsImV4cCI6MjA2MDczOTM5M30.ynXPJh0eQqXWzN9njuuGTW_ispgfM1OkhJTqCXAktVc',
   );
+
+  Get.put(AuthService());
+  Get.put(TaskService());
 
   runApp(const MyApp());
 }
@@ -27,37 +32,27 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'DayTask',
       theme: AppTheme.theme,
-      initialRoute: Supabase.instance.client.auth.currentUser == null
-          ? '/login'
-          : '/dashboard',
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/splash',
       getPages: [
+        GetPage(name: '/splash', page: () => const SplashScreen()),
+        GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(name: '/signup', page: () => const SignupScreen()),
         GetPage(
-          name: '/login',
-          page: () => const LoginScreen(),
-          transition: Transition.fadeIn,
-        ),
-        GetPage(
-          name: '/signup',
-          page: () => const SignupScreen(),
-          transition: Transition.fadeIn,
-        ),
-        GetPage(
-          name: '/dashboard',
+          name: '/main',
           page: () => const DashboardScreen(),
-          transition: Transition.fadeIn,
-          middlewares: [
-            RouteGuard(),
-          ],
+          middlewares: [AuthMiddleware()],
         ),
       ],
     );
   }
 }
 
-class RouteGuard extends GetMiddleware {
+class AuthMiddleware extends GetMiddleware {
   @override
   RouteSettings? redirect(String? route) {
-    return Supabase.instance.client.auth.currentUser == null
+    final authService = Get.find<AuthService>();
+    return authService.currentUser.value == null
         ? const RouteSettings(name: '/login')
         : null;
   }
